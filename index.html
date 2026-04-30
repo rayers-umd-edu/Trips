@@ -327,7 +327,7 @@
       const p = feature.properties || {};
       const zip = String(p.name || "Unknown");
       const placeName = zipNames[zip] || "";
-      const geoText = placeName ? (zip + " / " + placeName) : zip;
+      const geoText = placeName || zip;
       const valueText = numberWithCommas(p.origins || 0);
 
       L.tooltip({
