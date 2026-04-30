@@ -4,152 +4,108 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Interactive OD Choropleth</title>
+
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
   <style>
     html, body {
       margin: 0;
       padding: 0;
       height: 100%;
-      overflow: hidden;
       font-family: Arial, sans-serif;
     }
 
-    #map {
+    /* HEADER */
+    .header {
       position: fixed;
-      inset: 0;
+      top: 0;
+      left: 0;
       width: 100%;
-      height: 100dvh;
-    }
-
-    .legend-toggle {
-      background: rgba(255,255,255,0.96);
+      background: rgba(255,255,255,0.95);
+      z-index: 1000;
+      text-align: center;
       padding: 8px 10px;
-      border-radius: 6px;
-      box-shadow: 0 1px 6px rgba(0,0,0,0.25);
+      box-shadow: 0 1px 5px rgba(0,0,0,0.2);
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: 18px;
+      color: #0e2d69;
+    }
+
+    .header .subtitle {
       font-size: 13px;
-      font-weight: 700;
-      color: #1f3b73;
-      cursor: pointer;
-      user-select: none;
+      font-style: italic;
+      color: #395a9a;
     }
 
-    .legend-panel {
-      background: rgba(255,255,255,0.96);
-      padding: 10px 12px;
-      border-radius: 6px;
-      box-shadow: 0 1px 6px rgba(0,0,0,0.25);
-      font-size: 13px;
-      line-height: 1.35;
-      margin-top: 6px;
-      display: none;
+    /* MAP */
+    #map {
+      position: absolute;
+      top: 60px; /* pushes map below header */
+      left: 0;
+      width: 100%;
+      height: calc(100dvh - 60px);
     }
 
-    .legend-panel.open {
-      display: block;
-    }
-
-    .legend-row {
-      display: flex;
-      align-items: center;
-      margin: 4px 0;
-      gap: 8px;
-    }
-
-    .legend-swatch {
-      width: 18px;
-      height: 18px;
-      border: 1px solid #999;
-      flex: 0 0 18px;
-    }
-
+    /* SOURCE */
     .source-note {
       position: fixed;
       bottom: 8px;
       left: 10px;
       z-index: 1000;
-      background: rgba(255,255,255,0.92);
+      background: rgba(255,255,255,0.9);
       padding: 4px 8px;
       border-radius: 4px;
       font-size: 12px;
       font-style: italic;
     }
 
+    /* LABELS */
     .geo-label {
       background: transparent;
       border: none;
-      box-shadow: none;
-      color: #24364b;
       font-size: 10px;
       font-weight: 700;
-      padding: 0;
+      color: #24364b;
       text-shadow: 0 0 4px rgba(255,255,255,0.95);
-      white-space: nowrap;
     }
 
     .value-label {
       background: rgba(255,255,255,0.88);
-      border: 0;
       border-radius: 10px;
-      color: #111;
       font-size: 11px;
       font-weight: 700;
       padding: 1px 6px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.15);
-      white-space: nowrap;
     }
 
-    .leaflet-tooltip.geo-tooltip,
-    .leaflet-tooltip.value-tooltip {
+    .leaflet-tooltip {
       background: transparent;
-      border: 0;
+      border: none;
       box-shadow: none;
-      padding: 0;
-    }
-
-    .leaflet-tooltip.geo-tooltip:before,
-    .leaflet-tooltip.value-tooltip:before {
-      display: none;
-    }
-
-    @media (max-width: 768px) {
-      .geo-label {
-        font-size: 9px;
-      }
-
-      .value-label {
-        font-size: 10px;
-        padding: 1px 5px;
-      }
-
-      .source-note {
-        font-size: 11px;
-        bottom: 6px;
-        left: 6px;
-      }
-
-      .legend-toggle,
-      .legend-panel {
-        font-size: 12px;
-      }
     }
   </style>
 </head>
+
 <body>
+
+  <div class="header">
+    <h1>Origin Trip Counts into Birkdale Village</h1>
+    <div class="subtitle">Study Period: January - February 2020</div>
+  </div>
+
   <div id="map"></div>
+
   <div class="source-note">Source: INRIX trip data</div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
   <script>
     const geojsonUrl = "https://raw.githubusercontent.com/rayers-umd-edu/Trips/main/Birkdale%20Village%20Study.geojson";
 
-    const map = L.map("map", { zoomControl: true });
-
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 18,
-      attribution: "&copy; OpenStreetMap contributors"
-    }).addTo(map);
-
-    let geojsonLayer;
+    const map = L.map("map");
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 
     function getColor(d) {
       return d > 1100 ? "#084594" :
@@ -159,180 +115,54 @@
                         "#c6dbef";
     }
 
-    function defaultStyle(feature) {
-      const trips = Number(feature.properties.origins || 0);
+    function style(feature) {
       return {
-        fillColor: getColor(trips),
+        fillColor: getColor(feature.properties.origins || 0),
         weight: 1,
-        opacity: 1,
-        color: "#ffffff",
-        fillOpacity: 0.82
+        color: "#fff",
+        fillOpacity: 0.8
       };
     }
 
-    function numberWithCommas(x) {
-      return Number(x || 0).toLocaleString();
-    }
-
-    function largestRingLatLngs(geometry) {
-      let rings = [];
-      if (geometry.type === "Polygon") {
-        rings = [geometry.coordinates[0]];
-      } else if (geometry.type === "MultiPolygon") {
-        rings = geometry.coordinates.map(poly => poly[0]);
-      } else {
-        return null;
-      }
-
-      let best = null;
-      let bestArea = -1;
-
-      function ringArea(ring) {
-        let area = 0;
-        for (let i = 0; i < ring.length - 1; i++) {
-          const x1 = ring[i][0], y1 = ring[i][1];
-          const x2 = ring[i + 1][0], y2 = ring[i + 1][1];
-          area += (x1 * y2 - x2 * y1);
-        }
-        return Math.abs(area / 2);
-      }
-
-      rings.forEach(ring => {
-        const a = ringArea(ring);
-        if (a > bestArea) {
-          bestArea = a;
-          best = ring;
-        }
+    function center(feature) {
+      const coords = feature.geometry.coordinates[0];
+      let lat = 0, lng = 0;
+      coords.forEach(c => {
+        lng += c[0];
+        lat += c[1];
       });
-
-      if (!best) return null;
-      return best.map(pt => [pt[1], pt[0]]);
-    }
-
-    function centerForFeature(feature) {
-      const latlngs = largestRingLatLngs(feature.geometry);
-      if (!latlngs) return null;
-      try {
-        return L.polygon(latlngs).getBounds().getCenter();
-      } catch (e) {
-        return null;
-      }
+      return [lat / coords.length, lng / coords.length];
     }
 
     function addLabels(feature) {
-      const center = centerForFeature(feature);
-      if (!center) return;
+      const c = center(feature);
+      const p = feature.properties;
 
-      const props = feature.properties || {};
-      const zip = props.name || "Unknown";
-      const county = props.county ? props.county.replace(" County", "") : "";
-      const geoText = county ? (zip + " / " + county) : zip;
-      const valueText = numberWithCommas(props.origins || 0);
+      L.tooltip({permanent:true, direction:"top"})
+        .setLatLng(c)
+        .setContent(`<div class="geo-label">${p.name}</div>`)
+        .addTo(map);
 
-      L.tooltip({
-        permanent: true,
-        direction: "top",
-        className: "geo-tooltip",
-        offset: [0, -10]
-      })
-      .setLatLng(center)
-      .setContent('<div class="geo-label">' + geoText + '</div>')
-      .addTo(map);
-
-      L.tooltip({
-        permanent: true,
-        direction: "bottom",
-        className: "value-tooltip",
-        offset: [0, 10]
-      })
-      .setLatLng(center)
-      .setContent('<div class="value-label">' + valueText + '</div>')
-      .addTo(map);
-    }
-
-    function onEachFeature(feature, layer) {
-      const p = feature.properties || {};
-      const geo = p.name || "Unknown";
-      const county = p.county || "";
-      const trips = p.origins || 0;
-
-      layer.bindPopup(
-        "<strong>" + geo + "</strong><br>" +
-        (county ? county + "<br>" : "") +
-        "Origin trips: " + numberWithCommas(trips)
-      );
-
-      layer.on({
-        mouseover: function(e) {
-          const l = e.target;
-          l.setStyle({
-            weight: 2,
-            color: "#173b73",
-            fillOpacity: 0.95
-          });
-          if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
-            l.bringToFront();
-          }
-        },
-        mouseout: function(e) {
-          geojsonLayer.resetStyle(e.target);
-        }
-      });
-
-      addLabels(feature);
+      L.tooltip({permanent:true, direction:"bottom"})
+        .setLatLng(c)
+        .setContent(`<div class="value-label">${(p.origins||0).toLocaleString()}</div>`)
+        .addTo(map);
     }
 
     fetch(geojsonUrl)
       .then(r => r.json())
       .then(data => {
-        geojsonLayer = L.geoJSON(data, {
-          style: defaultStyle,
-          onEachFeature
+        const layer = L.geoJSON(data, {
+          style,
+          onEachFeature: (f,l) => {
+            l.bindPopup(`${f.properties.name}<br>Trips: ${(f.properties.origins||0).toLocaleString()}`);
+            addLabels(f);
+          }
         }).addTo(map);
 
-        map.fitBounds(geojsonLayer.getBounds(), { padding: [20, 20] });
-
-        const legend = L.control({ position: "topright" });
-        legend.onAdd = function() {
-          const div = L.DomUtil.create("div");
-          div.innerHTML = `
-            <div class="legend-toggle" id="legendToggle">Show Legend</div>
-            <div class="legend-panel" id="legendPanel">
-              <strong>Origin Trips</strong><br>
-              <span style="font-style:italic">Quantile classification</span>
-              <div class="legend-row"><span class="legend-swatch" style="background:#c6dbef"></span><span>1 - 8</span></div>
-              <div class="legend-row"><span class="legend-swatch" style="background:#6baed6"></span><span>9 - 73</span></div>
-              <div class="legend-row"><span class="legend-swatch" style="background:#4292c6"></span><span>74 - 261</span></div>
-              <div class="legend-row"><span class="legend-swatch" style="background:#2171b5"></span><span>262 - 1,100</span></div>
-              <div class="legend-row"><span class="legend-swatch" style="background:#084594"></span><span>1,101 - 1,523</span></div>
-            </div>
-          `;
-          L.DomEvent.disableClickPropagation(div);
-          return div;
-        };
-        legend.addTo(map);
-
-        setTimeout(() => {
-          const toggle = document.getElementById("legendToggle");
-          const panel = document.getElementById("legendPanel");
-          if (toggle && panel) {
-            toggle.addEventListener("click", function() {
-              const isOpen = panel.classList.contains("open");
-              if (isOpen) {
-                panel.classList.remove("open");
-                toggle.textContent = "Show Legend";
-              } else {
-                panel.classList.add("open");
-                toggle.textContent = "Hide Legend";
-              }
-            });
-          }
-        }, 0);
-      })
-      .catch(err => {
-        console.error(err);
-        alert("Could not load GeoJSON.");
+        map.fitBounds(layer.getBounds());
       });
   </script>
+
 </body>
 </html>
