@@ -223,7 +223,25 @@
   <script>
     const geojsonUrl = "https://raw.githubusercontent.com/rayers-umd-edu/Trips/main/Birkdale%20Village%20Study.geojson";
 
-    // Approximate Birkdale Village location
+    const zipNames = {
+      "28023": "China Grove",
+      "28027": "Concord",
+      "28031": "Cornelius",
+      "28036": "Davidson",
+      "28037": "Denver",
+      "28078": "Huntersville",
+      "28080": "Iron Station",
+      "28081": "Kannapolis",
+      "28115": "Mooresville",
+      "28117": "Mooresville",
+      "28164": "Stanley",
+      "28216": "Charlotte",
+      "28269": "Charlotte",
+      "28650": "Maiden",
+      "28673": "Sherrills Ford",
+      "28682": "Terrell"
+    };
+
     const birkdaleLat = 35.4429;
     const birkdaleLng = -80.8803;
 
@@ -307,9 +325,9 @@
       if (!center) return;
 
       const p = feature.properties || {};
-      const zip = p.name || "Unknown";
-      const county = p.county ? p.county.replace(" County", "") : "";
-      const geoText = county ? (zip + " / " + county) : zip;
+      const zip = String(p.name || "Unknown");
+      const placeName = zipNames[zip] || "";
+      const geoText = placeName ? (zip + " / " + placeName) : zip;
       const valueText = numberWithCommas(p.origins || 0);
 
       L.tooltip({
@@ -399,13 +417,12 @@
 
     function onEachFeature(feature, layer) {
       const p = feature.properties || {};
-      const geo = p.name || "Unknown";
-      const county = p.county || "";
+      const zip = String(p.name || "Unknown");
+      const placeName = zipNames[zip] || "";
       const trips = p.origins || 0;
 
       layer.bindPopup(
-        "<strong>" + geo + "</strong><br>" +
-        (county ? county + "<br>" : "") +
+        "<strong>" + zip + (placeName ? " / " + placeName : "") + "</strong><br>" +
         "Origin trips: " + numberWithCommas(trips)
       );
 
